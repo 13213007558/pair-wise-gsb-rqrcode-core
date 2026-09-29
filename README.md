@@ -105,6 +105,27 @@ mode - the mode of the QR Code (defaults to alphanumeric or byte_8bit, depending
 RQRCodeCore::QRCode.new("http://kyan.com", size: 2, level: :m, mode: :byte_8bit)
 ```
 
+## Decoding a sampled matrix
+
+Given an already-sampled QR Model 2 matrix (no camera/finder logic involved), `RQRCodeCore::QRDecoder`
+reads the payload back out. Each module is `true` (dark), `false` (light) or `nil` (unknown).
+Unknown modules take part in Reed-Solomon correction as erasures, alongside damaged modules,
+up to the correction capacity of the symbol. Numeric, alphanumeric and byte mode segments are
+supported. Inputs that are detectably beyond the correction capacity raise
+`RQRCodeCore::QRCodeDecodeError`; no partial or unverified data is returned.
+
+```ruby
+qr = RQRCodeCore::QRCode.new("https://kyan.com", level: :h)
+
+result = RQRCodeCore::QRDecoder.decode(qr.modules) # or RQRCodeCore::QRCode.decode(...)
+result.data                    # => "https://kyan.com"
+result.segments                # => decoded segments, each with #mode and #data
+result.version                 # => 3
+result.error_correction_level  # => :h
+result.mask_pattern            # => 0..7
+result.data_codewords          # => corrected data codewords (bytes)
+```
+
 ## Development
 
 ### Tests
