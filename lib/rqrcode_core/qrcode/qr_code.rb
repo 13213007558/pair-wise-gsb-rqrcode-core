@@ -81,7 +81,7 @@ module RQRCodeCore
   #
 
   class QRCode
-    attr_reader :modules, :module_count, :version
+    attr_reader :modules, :module_count, :version, :structured_append
 
     # Expects a string or array (for multi-segment encoding) to be parsed in, other args are optional
     #
@@ -97,6 +97,9 @@ module RQRCodeCore
     #      * :number
     #      * :alphanumeric
     #      * :byte_8bit
+    #   # structured_append - optional Hash with :position, :total and :parity keys.
+    #   #   When given, a Structured Append header is written in front of the data
+    #   #   and its bits are counted towards the symbol capacity.
     #
     #   qr = RQRCodeCore::QRCode.new('hello world', size: 1, level: :m, mode: :alphanumeric)
     #   segment_qr = QRCodeCore::QRCode.new({ data: 'foo', mode: :byte_8bit })
@@ -125,6 +128,11 @@ module RQRCodeCore
         raise QRCodeArgumentError, "Unknown error correction level `#{level.inspect}`"
       end
 
+      @structured_append = options[:structured_append]
+      if @structured_append && !%i[position total parity].all? { |key| @structured_append.key?(key) }
+        raise QRCodeArgumentError, "structured_append must include :position, :total and :parity"
+      end
+
       size = options[:size] || minimum_version(limit: max_size)
 
       if size > max_size
@@ -135,6 +143,7 @@ module RQRCodeCore
       @module_count = @version * 4 + QRPOSITIONPATTERNLENGTH
       @modules = Array.new(@module_count)
       @data_list = multi_segment? ? QRMulti.new(@data) : @data.writer
+      @data_list = QRStructuredAppend::Writer.new(**@structured_append, data_writer: @data_list) if @structured_append
       @data_cache = nil
       make
     end
@@ -410,6 +419,7 @@ module RQRCodeCore
       max_size_bits = QRMAXBITS[error_correction_level][version - 1]
 
       size_bits = multi_segment? ? @data.sum { |seg| seg.size(version) } : @data.size(version)
+      size_bits += QRStructuredAppend::HEADER_BITS if @structured_append
 
       return version if size_bits < max_size_bits
 

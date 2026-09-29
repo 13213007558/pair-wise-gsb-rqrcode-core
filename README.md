@@ -61,6 +61,18 @@ $ qr = RQRCodeCore::QRCode.new([
 
 This will create a QR Code with byte encoded, alphanumeric and number segments. Any combination of encodings/segments will work provided it fits within size limits.
 
+## Structured Append Support
+
+When a message does not fit into a single symbol of a given maximum size, it can be split across up to 16 linked Structured Append symbols:
+
+    $ require "rqrcode_core"
+    $ sa = RQRCodeCore::QRStructuredAppend.new("a long message ...", level: :h, max_size: 4)
+    $ sa.symbols # => Array of RQRCodeCore::QRCode, one per symbol
+    $ sa.chunks  # => the data slice carried by each symbol
+    $ sa.parity  # => parity byte shared by all symbols
+
+Each symbol carries a Structured Append header (position, total count and parity) directly in its bit stream, and the header is accounted for when computing symbol capacity. Multi-byte characters are never split across symbols. If the message fits in a single symbol within max_size, a single plain QR Code is returned instead.
+
 ## Doing your own rendering
 
 ```ruby
@@ -182,3 +194,6 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/whomwa
 ## License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+    $ sa.parity  # => parity byte shared by all symbols
+
+Each symbol carries a Structured Append header (position, total count and parity) directly in its bit stream, and the header is accounted for when computing symbol capacity. Multi-byte characters are never split across symbols. If the message fits in a single symbol within max_size, a single plain QR Code is returned instead.
