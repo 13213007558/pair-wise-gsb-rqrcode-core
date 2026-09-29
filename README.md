@@ -97,12 +97,46 @@ mode - the mode of the QR Code (defaults to alphanumeric or byte_8bit, depending
   * :number
   * :alphanumeric
   * :byte_8bit
+  * :kanji
+  * :auto (splits the string into an optimal mix of numeric, alphanumeric,
+    kanji and byte segments, inserting ECI segments when beneficial, and
+    picks the smallest possible version)
 ```
 
 #### Example
 
 ```ruby
 RQRCodeCore::QRCode.new("http://kyan.com", size: 2, level: :m, mode: :byte_8bit)
+```
+
+#### Kanji mode, ECI and automatic segmentation
+
+Japanese text can be encoded in the compact kanji mode (13 bits per
+character). Only characters that are double-byte Shift_JIS characters
+are accepted:
+
+```ruby
+RQRCodeCore::QRCode.new("漢字", mode: :kanji)
+```
+
+ECI segments declare the character encoding of the byte segments that
+follow them and can be used in the multi-segment (array) interface:
+
+```ruby
+RQRCodeCore::QRCode.new([
+  {data: 26, mode: :eci}, # ECI 26: UTF-8
+  {data: "日本語", mode: :byte_8bit}
+])
+```
+
+With `mode: :auto` the library splits the string into the mix of
+numeric, alphanumeric, kanji and byte segments (with ECI switches, e.g.
+to Shift_JIS for halfwidth katakana) that minimizes the total encoded
+bit count, including segment headers, ECI designators and the
+version-dependent character count fields:
+
+```ruby
+RQRCodeCore::QRCode.new("TEL:03-1234-5678 漢字テスト", mode: :auto)
 ```
 
 ## Development

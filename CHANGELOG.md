@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add kanji mode (`mode: :kanji`) for double-byte Shift_JIS characters
+- Add ECI segments (`mode: :eci`) declaring the encoding of following byte segments
+- Add `mode: :auto` automatic segmentation: splits a string into the
+  optimal mix of numeric, alphanumeric, kanji and byte segments (with ECI
+  switches), minimizing the encoded bit count including segment headers,
+  ECI designators and version-group dependent character count fields
+
 ## [2.1.0] - 2026-01-07
 
 - Bump minimum Ruby version to 3.2

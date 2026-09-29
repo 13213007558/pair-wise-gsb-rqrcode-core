@@ -4,13 +4,17 @@ module RQRCodeCore
   QRMODE = {
     mode_number: 1 << 0,      # 1 (binary: 0001)
     mode_alpha_numk: 1 << 1,  # 2 (binary: 0010)
-    mode_8bit_byte: 1 << 2   # 4 (binary: 0100)
+    mode_8bit_byte: 1 << 2,   # 4 (binary: 0100)
+    mode_kanji: 1 << 3,       # 8 (binary: 1000)
+    mode_eci: 7               # 7 (binary: 0111)
   }.freeze
 
   QRMODE_NAME = {
     number: :mode_number,
     alphanumeric: :mode_alpha_numk,
     byte_8bit: :mode_8bit_byte,
+    kanji: :mode_kanji,
+    eci: :mode_eci,
     multi: :mode_multi
   }.freeze
 
@@ -97,6 +101,9 @@ module RQRCodeCore
     #      * :number
     #      * :alphanumeric
     #      * :byte_8bit
+    #      * :kanji
+    #      * :auto (splits the string into an optimal mix of numeric, alphanumeric,
+    #        kanji and byte segments, inserting ECI segments when beneficial)
     #
     #   qr = RQRCodeCore::QRCode.new('hello world', size: 1, level: :m, mode: :alphanumeric)
     #   segment_qr = QRCodeCore::QRCode.new({ data: 'foo', mode: :byte_8bit })
@@ -110,7 +117,14 @@ module RQRCodeCore
 
       @data = case data
       when String
-        QRSegment.new(data: data, mode: options[:mode])
+        if options[:mode]&.to_sym == :auto
+          @auto_segmentations = (0..2).map do |group|
+            QRSegmenter.segment(data, version_group: group).map { |seg| QRSegment.new(**seg) }
+          end
+          nil
+        else
+          QRSegment.new(data: data, mode: options[:mode])
+        end
       when Array
         raise QRCodeArgumentError, "Array must contain Hashes with :data and :mode keys" unless data.all? { |seg| seg.is_a?(Hash) && %i[data mode].all? { |s| seg.key? s } }
         data.map { |seg| QRSegment.new(**seg) }
@@ -132,6 +146,7 @@ module RQRCodeCore
       end
 
       @version = size
+      @data = @auto_segmentations[QRUtil.version_group(size)] if @auto_segmentations
       @module_count = @version * 4 + QRPOSITIONPATTERNLENGTH
       @modules = Array.new(@module_count)
       @data_list = multi_segment? ? QRMulti.new(@data) : @data.writer
@@ -226,6 +241,10 @@ module RQRCodeCore
         :mode_number
       when QRAlphanumeric
         :mode_alpha_numk
+      when QRKanji
+        :mode_kanji
+      when QREci
+        :mode_eci
       else
         :mode_8bit_byte
       end
@@ -409,11 +428,21 @@ module RQRCodeCore
 
       max_size_bits = QRMAXBITS[error_correction_level][version - 1]
 
-      size_bits = multi_segment? ? @data.sum { |seg| seg.size(version) } : @data.size(version)
+      size_bits = bits_for_version(version)
 
       return version if size_bits < max_size_bits
 
       minimum_version(limit: limit, version: version + 1)
+    end
+
+    def bits_for_version(version)
+      if @auto_segmentations
+        @auto_segmentations[QRUtil.version_group(version)].sum { |seg| seg.size(version) }
+      elsif multi_segment?
+        @data.sum { |seg| seg.size(version) }
+      else
+        @data.size(version)
+      end
     end
 
     def extract_options!(arr) # :nodoc:

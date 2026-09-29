@@ -57,7 +57,8 @@ module RQRCodeCore
     BITS_FOR_MODE = {
       QRMODE[:mode_number] => [10, 12, 14],
       QRMODE[:mode_alpha_numk] => [9, 11, 13],
-      QRMODE[:mode_8bit_byte] => [8, 16, 16]
+      QRMODE[:mode_8bit_byte] => [8, 16, 16],
+      QRMODE[:mode_kanji] => [8, 10, 12]
     }.freeze
 
     # This value is used during the right shift zero fill step (rszf method).
@@ -135,20 +136,22 @@ module RQRCodeCore
     def self.get_length_in_bits(mode, version)
       raise QRCodeRunTimeError, "Unknown mode: #{mode}" unless QRMODE.value?(mode)
 
-      raise QRCodeRunTimeError, "Unknown version: #{version}" if version > 40
+      BITS_FOR_MODE[mode][version_group(version)]
+    end
 
-      if version.between?(1, 9)
-        # 1 - 9
-        macro_version = 0
-      elsif version <= 26
-        # 10 - 26
-        macro_version = 1
-      elsif version <= 40
-        # 27 - 40
-        macro_version = 2
+    # Version group index (0, 1 or 2) determining the character count
+    # field widths: versions 1-9, 10-26 and 27-40.
+    def self.version_group(version)
+      case version
+      when 1..9
+        0
+      when 10..26
+        1
+      when 27..40
+        2
+      else
+        raise QRCodeRunTimeError, "Unknown version: #{version}"
       end
-
-      BITS_FOR_MODE[mode][macro_version]
     end
 
     def self.get_lost_points(modules)
