@@ -4,7 +4,8 @@ module RQRCodeCore
   QRMODE = {
     mode_number: 1 << 0,      # 1 (binary: 0001)
     mode_alpha_numk: 1 << 1,  # 2 (binary: 0010)
-    mode_8bit_byte: 1 << 2   # 4 (binary: 0100)
+    mode_8bit_byte: 1 << 2,   # 4 (binary: 0100)
+    mode_structured_append: 0b0011 # 3 (binary: 0011)
   }.freeze
 
   QRMODE_NAME = {
@@ -45,6 +46,12 @@ module RQRCodeCore
 
   QRPOSITIONPATTERNLENGTH = (7 + 1) * 2 + 1
   QRFORMATINFOLENGTH = 15
+
+  # Structured Append header: 4-bit mode indicator, 4-bit symbol position,
+  # 4-bit total symbol count and 8-bit parity
+  QRSTRUCTUREDAPPENDHEADERBITS = 20
+
+  QRSTRUCTUREDAPPENDMAXSYMBOLS = 16
 
   # http://web.archive.org/web/20110710094955/http://www.denso-wave.com/qrcode/vertable1-e.html
   # http://web.archive.org/web/20110710094955/http://www.denso-wave.com/qrcode/vertable2-e.html
@@ -97,6 +104,10 @@ module RQRCodeCore
     #      * :number
     #      * :alphanumeric
     #      * :byte_8bit
+    #   # structured_append - optional Hash marking this symbol as part of a Structured Append series:
+    #      * position - zero-based index of this symbol in the series
+    #      * total - total number of symbols in the series (2..16)
+    #      * parity - 8-bit XOR parity computed over the bytes of the complete original data
     #
     #   qr = RQRCodeCore::QRCode.new('hello world', size: 1, level: :m, mode: :alphanumeric)
     #   segment_qr = QRCodeCore::QRCode.new({ data: 'foo', mode: :byte_8bit })
@@ -107,6 +118,7 @@ module RQRCodeCore
 
       level = (options[:level] || :h).to_sym
       max_size = options[:max_size] || QRUtil.max_size
+      @structured_append = validate_structured_append(options[:structured_append])
 
       @data = case data
       when String
@@ -219,6 +231,14 @@ module RQRCodeCore
       @data.is_a?(Array)
     end
 
+    # Return true if this QR Code carries a Structured Append header
+    def structured_append?
+      !@structured_append.nil?
+    end
+
+    # Return the Structured Append header Hash ({position:, total:, parity:}) or nil
+    attr_reader :structured_append
+
     # Return a symbol in QRMODE.keys for current mode used
     def mode
       case @data_list
@@ -260,7 +280,7 @@ module RQRCodeCore
 
       if @data_cache.nil?
         @data_cache = QRCode.create_data(
-          @version, @error_correct_level, @data_list
+          @version, @error_correct_level, @data_list, structured_append: @structured_append
         )
       end
 
@@ -410,10 +430,33 @@ module RQRCodeCore
       max_size_bits = QRMAXBITS[error_correction_level][version - 1]
 
       size_bits = multi_segment? ? @data.sum { |seg| seg.size(version) } : @data.size(version)
+      size_bits += QRSTRUCTUREDAPPENDHEADERBITS if structured_append?
 
       return version if size_bits < max_size_bits
 
       minimum_version(limit: limit, version: version + 1)
+    end
+
+    def validate_structured_append(options) # :nodoc:
+      return nil if options.nil?
+
+      position = options[:position]
+      total = options[:total]
+      parity = options[:parity]
+
+      unless total.is_a?(Integer) && total.between?(2, QRSTRUCTUREDAPPENDMAXSYMBOLS)
+        raise QRCodeArgumentError, "structured_append :total must be an Integer between 2 and #{QRSTRUCTUREDAPPENDMAXSYMBOLS}"
+      end
+
+      unless position.is_a?(Integer) && position.between?(0, total - 1)
+        raise QRCodeArgumentError, "structured_append :position must be an Integer between 0 and #{total - 1}"
+      end
+
+      unless parity.is_a?(Integer) && parity.between?(0, 255)
+        raise QRCodeArgumentError, "structured_append :parity must be an Integer between 0 and 255"
+      end
+
+      {position: position, total: total, parity: parity}
     end
 
     def extract_options!(arr) # :nodoc:
@@ -429,10 +472,16 @@ module RQRCodeCore
         max_data_bytes * 8
       end
 
-      def create_data(version, error_correct_level, data_list) # :nodoc:
+      def create_data(version, error_correct_level, data_list, structured_append: nil) # :nodoc:
         rs_blocks = QRRSBlock.get_rs_blocks(version, error_correct_level)
         max_data_bits = QRCode.count_max_data_bits(rs_blocks)
         buffer = QRBitBuffer.new(version)
+
+        if structured_append
+          buffer.structured_append_encoding_start(
+            structured_append[:position], structured_append[:total], structured_append[:parity]
+          )
+        end
 
         data_list.write(buffer)
         buffer.end_of_message(max_data_bits)

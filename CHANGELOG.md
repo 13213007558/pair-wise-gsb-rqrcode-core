@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add Structured Append support: `RQRCodeCore::QRStructuredAppend.encode(data, level:, max_size:)`
+  splits data that exceeds a single symbol into a series of up to 16 symbols, each carrying
+  a header with its position, the total symbol count and a shared parity byte. The split
+  minimises the number of symbols first, then the largest version, and never breaks
+  multi-byte characters apart. `RQRCodeCore::QRCode.new` also accepts a
+  `structured_append: {position:, total:, parity:}` option to encode a single symbol of a series
+
 ## [2.1.0] - 2026-01-07
 
 - Bump minimum Ruby version to 3.2

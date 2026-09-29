@@ -46,6 +46,13 @@ module RQRCodeCore
       put(length, QRUtil.get_length_in_bits(QRMODE[:mode_8bit_byte], @version))
     end
 
+    def structured_append_encoding_start(position, total, parity)
+      put(QRMODE[:mode_structured_append], 4)
+      put(position, 4)
+      put(total - 1, 4)
+      put(parity, 8)
+    end
+
     def alphanumeric_encoding_start(length)
       put(QRMODE[:mode_alpha_numk], 4)
       put(length, QRUtil.get_length_in_bits(QRMODE[:mode_alpha_numk], @version))
