@@ -23,20 +23,24 @@ module RQRCodeCore
     end
 
     def header_size(version)
+      return 0 if mode == :mode_eci
+
       QRUtil.get_length_in_bits(QRMODE[mode], version)
     end
 
     def content_size
-      chunk_size, bit_length, extra = case mode
+      case mode
       when :mode_number
-        [3, QRNumeric::NUMBER_LENGTH[3], QRNumeric::NUMBER_LENGTH[data_length % 3] || 0]
+        (data_length / 3) * QRNumeric::NUMBER_LENGTH[3] + (QRNumeric::NUMBER_LENGTH[data_length % 3] || 0)
       when :mode_alpha_numk
-        [2, 11, 6]
+        (data_length / 2) * 11 + (data_length % 2) * 6
       when :mode_8bit_byte
-        [1, 8, 0]
+        data_length * 8
+      when :mode_kanji
+        data_length * 13
+      when :mode_eci
+        QRECI.designator_bits(data)
       end
-
-      (data_length / chunk_size) * bit_length + (((data_length % chunk_size) == 0) ? 0 : extra)
     end
 
     def writer
@@ -45,6 +49,10 @@ module RQRCodeCore
         QRNumeric.new(data)
       when :mode_alpha_numk
         QRAlphanumeric.new(data)
+      when :mode_kanji
+        QRKanji.new(data)
+      when :mode_eci
+        QRECI.new(data)
       when :mode_multi
         QRMulti.new(data)
       else
@@ -55,7 +63,7 @@ module RQRCodeCore
     private
 
     def data_length
-      data.bytesize
+      (mode == :mode_kanji) ? data.size : data.bytesize
     end
   end
 end

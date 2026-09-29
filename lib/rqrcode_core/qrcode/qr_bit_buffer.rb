@@ -56,6 +56,23 @@ module RQRCodeCore
       put(length, QRUtil.get_length_in_bits(QRMODE[:mode_number], @version))
     end
 
+    def kanji_encoding_start(length)
+      put(QRMODE[:mode_kanji], 4)
+      put(length, QRUtil.get_length_in_bits(QRMODE[:mode_kanji], @version))
+    end
+
+    def eci_encoding_start(assignment_number)
+      put(QRMODE[:mode_eci], 4)
+
+      if assignment_number < 128
+        put(assignment_number, 8)
+      elsif assignment_number < 16_384
+        put(0b10 << 14 | assignment_number, 16)
+      else
+        put(0b110 << 21 | assignment_number, 24)
+      end
+    end
+
     def pad_until(prefered_size)
       # Align on byte
       while get_length_in_bits % 8 != 0

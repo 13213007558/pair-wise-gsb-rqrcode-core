@@ -4,13 +4,17 @@ module RQRCodeCore
   QRMODE = {
     mode_number: 1 << 0,      # 1 (binary: 0001)
     mode_alpha_numk: 1 << 1,  # 2 (binary: 0010)
-    mode_8bit_byte: 1 << 2   # 4 (binary: 0100)
+    mode_8bit_byte: 1 << 2,   # 4 (binary: 0100)
+    mode_kanji: 1 << 3,       # 8 (binary: 1000)
+    mode_eci: 7               # 7 (binary: 0111)
   }.freeze
 
   QRMODE_NAME = {
     number: :mode_number,
     alphanumeric: :mode_alpha_numk,
     byte_8bit: :mode_8bit_byte,
+    kanji: :mode_kanji,
+    eci: :mode_eci,
     multi: :mode_multi
   }.freeze
 
@@ -97,6 +101,10 @@ module RQRCodeCore
     #      * :number
     #      * :alphanumeric
     #      * :byte_8bit
+    #      * :kanji (data must be encodable as double-byte Shift_JIS)
+    #      * :auto (splits the string into the minimal-bit sequence of
+    #        numeric/alphanumeric/kanji/byte segments, adding ECI headers
+    #        for byte segments that need them, and picks the smallest version)
     #
     #   qr = RQRCodeCore::QRCode.new('hello world', size: 1, level: :m, mode: :alphanumeric)
     #   segment_qr = QRCodeCore::QRCode.new({ data: 'foo', mode: :byte_8bit })
@@ -110,7 +118,11 @@ module RQRCodeCore
 
       @data = case data
       when String
-        QRSegment.new(data: data, mode: options[:mode])
+        if options[:mode]&.to_sym == :auto
+          QRSegmenter.segment(data, level: level).map { |seg| QRSegment.new(**seg) }
+        else
+          QRSegment.new(data: data, mode: options[:mode])
+        end
       when Array
         raise QRCodeArgumentError, "Array must contain Hashes with :data and :mode keys" unless data.all? { |seg| seg.is_a?(Hash) && %i[data mode].all? { |s| seg.key? s } }
         data.map { |seg| QRSegment.new(**seg) }
@@ -226,6 +238,8 @@ module RQRCodeCore
         :mode_number
       when QRAlphanumeric
         :mode_alpha_numk
+      when QRKanji
+        :mode_kanji
       else
         :mode_8bit_byte
       end

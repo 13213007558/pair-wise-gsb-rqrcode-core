@@ -61,6 +61,33 @@ $ qr = RQRCodeCore::QRCode.new([
 
 This will create a QR Code with byte encoded, alphanumeric and number segments. Any combination of encodings/segments will work provided it fits within size limits.
 
+Kanji and ECI segments are also supported:
+
+```ruby
+$ qr = RQRCodeCore::QRCode.new([
+  {data: 26, mode: :eci},            # declare UTF-8 for the byte segments that follow
+  {data: "héllo", mode: :byte_8bit},
+  {data: "日本語", mode: :kanji}      # data must be encodable as double-byte Shift_JIS
+])
+```
+
+## Automatic Segmentation
+
+Pass `mode: :auto` to let the library split a string into the sequence of
+segments (number, alphanumeric, kanji and byte, with ECI headers where
+needed) that minimises the total number of bits, and pick the smallest QR
+version that fits:
+
+```ruby
+$ qr = RQRCodeCore::QRCode.new("Hello 世界123", mode: :auto)
+```
+
+The optimiser accounts for segment headers, ECI switching and the
+character count indicator sizes of each version group (1-9, 10-26, 27-40).
+Characters that cannot be represented as double-byte Shift_JIS are never
+forced into kanji segments; they are encoded as bytes with an appropriate
+ECI header instead.
+
 ## Doing your own rendering
 
 ```ruby
@@ -97,6 +124,8 @@ mode - the mode of the QR Code (defaults to alphanumeric or byte_8bit, depending
   * :number
   * :alphanumeric
   * :byte_8bit
+  * :kanji
+  * :auto (splits the string into an optimal mix of segments)
 ```
 
 #### Example
