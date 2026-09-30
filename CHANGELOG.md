@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add `QROverlayAnalyzer` and `QRCode#overlay_analysis`: read-only analysis of how
+  covering modules (e.g. with a logo) spends the error correction budget, reporting
+  affected codewords and remaining margin per Reed-Solomon block, with function
+  modules reported separately and an optional `reserved_errors` margin for
+  unknown-position errors
+
 ## [2.1.0] - 2026-01-07
 
 - Bump minimum Ruby version to 3.2

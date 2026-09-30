@@ -219,6 +219,28 @@ module RQRCodeCore
       @data.is_a?(Array)
     end
 
+    # Read-only analysis of how covering a set of modules (for example
+    # with a logo) spends the error correction budget of this QR Code.
+    #
+    # coordinates - an enumerable of [row, column] Integer pairs to cover
+    # reserved_errors - non-negative Integer; parity codewords (2 per error)
+    #                   set aside in every RS block for errors at unknown
+    #                   positions
+    #
+    # Returns a Hash (see QROverlayAnalyzer#analyze) with affected codewords
+    # and remaining error correction margin per RS block; function modules
+    # are reported separately. The QR Code itself is never modified, and the
+    # report is a conservative bound under the assumptions listed in the
+    # report, not a guarantee of decodability.
+    #
+    #  qr = RQRCodeCore::QRCode.new('hello world', level: :h)
+    #  report = qr.overlay_analysis([[10, 10], [10, 11]], reserved_errors: 1)
+    #  report[:recoverable] # => true/false
+    #
+    def overlay_analysis(coordinates, reserved_errors: 0)
+      QROverlayAnalyzer.analyze(self, coordinates, reserved_errors: reserved_errors)
+    end
+
     # Return a symbol in QRMODE.keys for current mode used
     def mode
       case @data_list

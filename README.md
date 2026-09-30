@@ -76,6 +76,34 @@ qr.modules.each do |row|
 end
 ```
 
+## Analyzing module overlays (e.g. logos)
+
+If you plan to cover modules of an encoded QR Code (for example with a
+logo), `QROverlayAnalyzer` reports how the cover spends the error
+correction budget, per Reed-Solomon block. The analysis is read-only and
+never modifies the QR Code.
+
+```ruby
+require "rqrcode_core"
+
+qr = RQRCodeCore::QRCode.new("https://kyan.com", level: :h)
+report = qr.overlay_analysis([[10, 10], [10, 11]], reserved_errors: 1)
+
+report[:blocks].each do |block|
+  puts "block #{block[:index]}: #{block[:affected_codewords]} codewords covered, " \
+       "margin #{block[:remaining_margin]} of #{block[:ec_count]}"
+end
+report[:function_modules] # finder/timing/alignment/format/version hits, reported separately
+report[:recoverable]      # true if every block stays within its budget
+report[:assumptions]      # the report is a conservative bound under these assumptions
+```
+
+Covered modules are assumed fully unreadable, and covering any bit of a
+codeword counts that codeword once (never more). `reserved_errors` sets
+aside 2 parity codewords per block for each anticipated error at an unknown
+position. The report is a conservative bound under the stated assumptions,
+not a guarantee that the symbol will decode.
+
 ### Options
 
 The library expects a string or array (for multiple encodings) to be parsed in, other args are optional.
