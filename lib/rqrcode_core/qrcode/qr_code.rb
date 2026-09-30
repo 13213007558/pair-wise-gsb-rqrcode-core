@@ -231,6 +231,19 @@ module RQRCodeCore
       end
     end
 
+    # Read-only analysis of how covering +coordinates+ (an Array of
+    # [row, column] module pairs, e.g. a logo placed over the symbol)
+    # impacts the error correction budget. Returns a
+    # QROverlayAnalysis::Report; does not modify this QR Code.
+    #
+    #  qr = RQRCodeCore::QRCode.new('hello world', level: :h)
+    #  report = qr.analyze_overlay([[10, 10], [10, 11]], reserve_errors: 2)
+    #  report.correctable? # => true
+    #
+    def analyze_overlay(coordinates, reserve_errors: 0)
+      QROverlayAnalysis.analyze(self, coordinates, reserve_errors: reserve_errors)
+    end
+
     protected
 
     def make # :nodoc:

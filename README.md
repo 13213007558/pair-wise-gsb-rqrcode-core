@@ -105,6 +105,31 @@ mode - the mode of the QR Code (defaults to alphanumeric or byte_8bit, depending
 RQRCodeCore::QRCode.new("http://kyan.com", size: 2, level: :m, mode: :byte_8bit)
 ```
 
+## Overlay (logo) analysis
+
+The "a logo may cover at most X% of the area" rule of thumb is unreliable.
+Instead you can analyze exactly how covering a set of modules impacts the
+error correction budget of an encoded symbol:
+
+```ruby
+qr = RQRCodeCore::QRCode.new("https://kyan.com", level: :h)
+logo = (9..15).flat_map { |row| (9..15).map { |col| [row, col] } }
+report = qr.analyze_overlay(logo, reserve_errors: 2)
+
+report.correctable?                  # => true/false
+report.blocks.first.remaining_margin # => erasures this RS block can still absorb
+report.function_modules[:position]   # => covered finder modules, reported separately
+```
+
+The report maps every covered module back to the Reed-Solomon block and
+codeword it belongs to (a codeword is counted once no matter how many of
+its modules are covered). Function modules (position, timing, alignment,
+format, version) and remainder bits are reported separately and never
+consume the data error correction budget. `reserve_errors` sets aside
+budget for errors at unknown positions (2 ec codewords each). The analysis
+is read-only and the report is a conservative bound under the assumptions
+listed in `report.assumptions`.
+
 ## Development
 
 ### Tests
